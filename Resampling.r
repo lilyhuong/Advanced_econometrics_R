@@ -113,3 +113,54 @@ u=seq(min(t),max(t),length.out = 100)
 lines(u,dnorm(u, 0, 1), col = "red")
 
 
+
+#15/09
+
+## Bootstrap distribution: HCCME t-test
+
+set.seed(1)
+X = rlnorm(100) 
+y = 1+2*X+1-(runif(100)<.5)*2 
+library(sandwich) #this library we can use the fonction vovHC
+t = numeric(50000)
+mod=summary(lm(y~X))
+res=mod$residuals
+for (i in 1:50000){
+  resb=sample(res,replace=TRUE) #vector of new bootstrap
+  yb=mod$coefficients[1]+2*X+resb
+  modb=summary(lm(yb~X))  #lm: fit the OLS
+  b.se=sqrt(vcovHC(lm(yb~X))[4])
+  t[i]=(modb$coefficients[2]-2)/b.se  #compute the t stat with true coeff 
+}
+hist(t,nclass=120,probability=TRUE,col="grey") #histogram of qtt of t
+u=seq(min(t),max(t), by=.01) # asymptotic dist
+lines(u,dnorm(u,0,1), lty=1, col="red")
+
+b0.se=sqrt(vcovHC(lm(y~X))[4])
+CI.inf=mod$coefficients[2]-quantile(t,0.975)*b0.se
+CI.sup=mod$coefficients[2]-quantile(t,0.025)*b0.se
+
+t0=(mod$coefficients[2]-2)/b0.se
+p.value=sum(t>t0)/n    # unilateral p-value
+
+n=NROW(t)              # bilateral p-value
+p.value=sum(t>abs(t0))/n + sum(t<(-abs(t0)))/n
+
+
+## Permutation tests for difference in means
+
+set.seed(1) ; n=30 ; m=30
+X=rlnorm(n,0,1)
+Y=rlnorm(m,0,1)
+t0=mean(X)-mean(Y)   #diff in mean
+st0=(mean(X)-mean(Y))/sqrt(var(X)/n+var(Y)/m)  #standard deviation
+p.value= 2*pnorm(-abs(st0))
+nperm=5000
+t=numeric(nperm)
+for (i in 1:nperm){
+  Zp=sample(c(X,Y),replace=FALSE)
+  t[i]=mean(Zp[1:n])-mean(Zp[(n+1):(n+m)])  #diff in couple of sample 
+}
+hist(t,nclass=120,probability=TRUE,col="grey")
+abline(v=t0, col="red")
+p.value=sum(t>abs(t0))/nperm+sum(t<(-abs(t0)))/nperm
